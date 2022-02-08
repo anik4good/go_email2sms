@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/anik4good/fiber_boilerplate/util"
+	"github.com/anik4good/go_email2sms/util"
 	"github.com/bxcodec/faker/v3"
 
 	//"strings"
 	"time"
 
-	Configuration "github.com/anik4good/fiber_boilerplate/config"
-	"github.com/anik4good/fiber_boilerplate/models"
+	Configuration "github.com/anik4good/go_email2sms/config"
+	"github.com/anik4good/go_email2sms/models"
 	"github.com/gofiber/fiber/v2"
 	gonanoid "github.com/matoous/go-nanoid"
 )

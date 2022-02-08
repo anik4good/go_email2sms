@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -10,10 +11,13 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 
-	Configuration "github.com/anik4good/fiber_boilerplate/config"
-	"github.com/anik4good/fiber_boilerplate/models"
-	Route "github.com/anik4good/fiber_boilerplate/routes"
-	"github.com/bxcodec/faker/v3"
+	Configuration "github.com/anik4good/go_email2sms/config"
+	"github.com/anik4good/go_email2sms/models"
+	Route "github.com/anik4good/go_email2sms/routes"
+
+	"gitlab.com/hartsfield/gmailAPI"
+	"gitlab.com/hartsfield/inboxer"
+	gmail "google.golang.org/api/gmail/v1"
 )
 
 var database *sql.DB
@@ -22,15 +26,12 @@ var logger *log.Logger
 func main() {
 	fmt.Println("hello world")
 	logger = Configuration.InitLogger()
-
 	//	Configuration.InitDatabaseMysql()
 	Configuration.InitDatabaseMysqlGorm()
 
 	app := fiber.New()
-
 	app.Use(requestid.New())
 	Route.SetUpRoutes(app)
-
 	app.Use(cors.New())
 	// Default middleware config
 
@@ -41,69 +42,61 @@ func main() {
 	// go log.Fatal(app.Listen(":3000"))
 	go app.Listen("127.0.0.1:3000")
 	time.Sleep(time.Second)
-	//UserSeed()
+	//util.UserSeed()
+	ctx := context.Background()
+	srv := gmailAPI.ConnectToService(ctx, gmail.GmailComposeScope)
 
 	for {
-		sendToQueue()
-		//	//var q models.Queue
-		//
-		//	//newRecords := checkForNewRecords()
-		queue := []models.Queue{}
-		result := Configuration.GormDBConn.Where("status = ?", 0).Limit(1).Last(&queue)
-		if result.RowsAffected == 0 {
-			//fmt.Println("No data found on Queue table")
+		// sendToQueue()
+
+		// num will be -1 on err
+		// num, err := inboxer.CheckForUnread(srv)
+		msgs, err := inboxer.Query(srv, "me:UNREAD after:2023/01/01 before:2017/01/30")
+
+		if err != nil {
+			fmt.Println(err)
 		}
 
-		//log.Println(int(result.RowsAffected))
+		if int(CheckUnread()) > 0 {
 
-		if int(result.RowsAffected) > 0 {
-			for _, q := range queue {
-				//go processEmail(queue)
-				//logger.Println("Status change for id ", q.ID)
-				fmt.Println("Queued Data: ", q.Name)
-				q.Status = 2
-				Configuration.GormDBConn.Updates(&q)
+			fmt.Printf("You have %d unread emails.", CheckUnread())
+			fmt.Println("")
+
+			// Range over the messages
+			for _, msg := range msgs {
+				md := inboxer.GetPartialMetadata(msg)
+				fmt.Println("From: ", md.From)
+
+				body, err := inboxer.GetBody(msg, "text/plain")
+				if err != nil {
+					fmt.Println(err)
+				}
+				fmt.Println(body)
 			}
+
+			// queue := []models.Queue{}
+			// result := Configuration.GormDBConn.Where("status = ?", 0).Limit(1).Last(&queue)
+			// if result.RowsAffected == 0 {
+			// 	fmt.Println("No data found on Queue table")
+			// }
+
+			// //log.Println(int(result.RowsAffected))
+
+			// if int(result.RowsAffected) > 0 {
+			// 	for _, q := range queue {
+			// 		//go processEmail(queue)
+			// 		//logger.Println("Status change for id ", q.ID)
+			// 		fmt.Println("Queued Data: ", q.Name)
+			// 		q.Status = 2
+			// 		Configuration.GormDBConn.Updates(&q)
+			// 	}
+		} else {
+			fmt.Printf("You have 0 unread emails.")
+			fmt.Println("")
 		}
-		//
-		//	//if int(result.RowsAffected) > 0 {
-		//	//	// wg.Add(int(num))
-		//	//	// for _, queue := range newRecords {
-		//	//	// 	log.Println("Hello world")
-		//	//
-		//	//	// }
-		//	//
-		//	//	for i := 0; i < int(result.RowsAffected); i++ {
-		//	//		log.Println("Hello world")
-		//	//
-		//	//	}
-		//	//
-		//	//	// wg.Wait()
-		//	//}
-		//
-		//	// for int(newRecords.RowsAffected) {
-		//
-		//	// log.Println("Hello world")
-		//
-		//	// 	var q models.Queue
-		//
-		//	// 	err := newRecords.Scan(&q.ID, &q.Name, &q.Email)
-		//	// 	if err != nil {
-		//	// 		logger.Println("Error writting new records to queued sms struct", err)
-		//	// 		continue
-		//	// 	}
-		//
-		//	// 	//		changeStatusToPending(q.ID)
-		//
-		//	// 	//	go processEmail(q)
-		//	// 	logger.Println("Status change for id ", q.ID)
-		//
-		//	// 	fmt.Println("Status change for id ", q.ID)
-		//
-		//	// }
-		//
-		time.Sleep(2 * time.Second)
-		fmt.Printf(">")
+
+		time.Sleep(5 * time.Second)
+		// fmt.Printf(">")
 	}
 
 }
@@ -192,32 +185,18 @@ func sendToQueue() {
 // 	}
 // }
 
-func UserSeed() {
-	// queue := new(models.Queue)
+func CheckUnread() int64 {
+	// Connect to the gmail API service.
+	ctx := context.Background()
+	srv := gmailAPI.ConnectToService(ctx, gmail.GmailComposeScope)
 
-	user := new(models.User)
+	// num will be -1 on err
+	num, err := inboxer.CheckForUnread(srv)
 
-	for i := 0; i < 500; i++ {
-
-		user.ID = 0
-		user.Name = faker.Name()
-		user.Email = faker.Email()
-		user.Status = 0
-		//prepare the statement
-		//	stmt, _ := s.db.Prepare(`INSERT INTO users(name, email) VALUES (?,?)`)
-		// execute query
-		//	_, err := stmt.Exec(faker.Name(), faker.Email())
-
-		// res, err := Configuration.GormDBConn.Raw(`INSERT INTO users(name, email,status) VALUES (?,?,?)`, faker.Name(), faker.Email(), 0)
-		// if err != nil {
-		// 	fmt.Println(err)
-		// }
-
-		Configuration.GormDBConn.Create(&user)
-		// Print result
-
+	if err != nil {
+		fmt.Println(err)
 	}
-
-	log.Println("User Seeded successfully")
+	// fmt.Printf("You have %d unread emails.", int(num))
+	return num
 
 }

@@ -5,6 +5,9 @@ import (
 	"regexp"
 	"strings"
 
+	Configuration "github.com/anik4good/go_email2sms/config"
+	"github.com/anik4good/go_email2sms/models"
+	"github.com/bxcodec/faker/v3"
 	gonanoid "github.com/matoous/go-nanoid"
 )
 
@@ -72,5 +75,35 @@ func GetValidPhoneNumberUpdated(number string) bool {
 	}
 
 	return false
+
+}
+
+func UserSeed() {
+	// queue := new(models.Queue)
+
+	user := new(models.User)
+
+	for i := 0; i < 500; i++ {
+
+		user.ID = 0
+		user.Name = faker.Name()
+		user.Email = faker.Email()
+		user.Status = 0
+		//prepare the statement
+		//	stmt, _ := s.db.Prepare(`INSERT INTO users(name, email) VALUES (?,?)`)
+		// execute query
+		//	_, err := stmt.Exec(faker.Name(), faker.Email())
+
+		// res, err := Configuration.GormDBConn.Raw(`INSERT INTO users(name, email,status) VALUES (?,?,?)`, faker.Name(), faker.Email(), 0)
+		// if err != nil {
+		// 	fmt.Println(err)
+		// }
+
+		Configuration.GormDBConn.Create(&user)
+		// Print result
+
+	}
+
+	log.Println("User Seeded successfully")
 
 }

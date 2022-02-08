@@ -1,13 +1,14 @@
 package config
 
 import (
-	"gorm.io/gorm/logger"
 	"io/ioutil"
 	"log"
 	"os"
 	"time"
 
-	"github.com/anik4good/fiber_boilerplate/models"
+	"gorm.io/gorm/logger"
+
+	"github.com/anik4good/go_email2sms/models"
 	"gopkg.in/yaml.v2"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

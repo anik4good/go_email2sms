@@ -1,7 +1,7 @@
 package routes
 
 import (
-	Controller "github.com/anik4good/fiber_boilerplate/controllers"
+	Controller "github.com/anik4good/go_email2sms/controllers"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/monitor"
 	//Controller "github.com/anik4good/go_email/api"

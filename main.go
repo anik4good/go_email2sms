@@ -79,7 +79,7 @@ func main() {
 				fmt.Println("From: ", md.From)
 				fmt.Println("Date: ", time)
 				fmt.Println(body)
-				SendToTrash(msg.id)
+				SendToTrash(msg.Id)
 			}
 
 			// MarkAsRead()
@@ -276,9 +276,9 @@ func SendToTrash(id string) {
 	ctx := context.Background()
 	srv := gmailAPI.ConnectToService(ctx, gmail.GmailComposeScope)
 
-	msg, err := srv.Users.Messages.Get("me", id).Do()
+	msg, err := srv.Users.Messages.Trash("me", id).Do()
 	if err != nil {
 		fmt.Println(err)
 	}
-
+	fmt.Println("Message ID: ", msg.Id, " is trashed")
 }

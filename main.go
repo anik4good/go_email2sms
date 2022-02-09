@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -48,31 +50,39 @@ func main() {
 
 	for {
 		// sendToQueue()
+		// CheckProfile()
 
-		// num will be -1 on err
-		// num, err := inboxer.CheckForUnread(srv)
-		msgs, err := inboxer.Query(srv, "me:UNREAD after:2023/01/01 before:2017/01/30")
+		msgs, err := inboxer.Query(srv, "label:UNREAD after:2022/01/01 before:2023/12/31")
 
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		if int(CheckUnread()) > 0 {
-
 			fmt.Printf("You have %d unread emails.", CheckUnread())
 			fmt.Println("")
-
 			// Range over the messages
 			for _, msg := range msgs {
-				md := inboxer.GetPartialMetadata(msg)
-				fmt.Println("From: ", md.From)
 
+				fmt.Println(msg.Id)
+				time, err := inboxer.ReceivedTime(msg.InternalDate)
+				if err != nil {
+					fmt.Println(err)
+				}
+
+				md := inboxer.GetPartialMetadata(msg)
 				body, err := inboxer.GetBody(msg, "text/plain")
 				if err != nil {
 					fmt.Println(err)
 				}
+
+				fmt.Println("From: ", md.From)
+				fmt.Println("Date: ", time)
 				fmt.Println(body)
+				SendToTrash(msg.id)
 			}
+
+			// MarkAsRead()
 
 			// queue := []models.Queue{}
 			// result := Configuration.GormDBConn.Where("status = ?", 0).Limit(1).Last(&queue)
@@ -198,5 +208,77 @@ func CheckUnread() int64 {
 	}
 	// fmt.Printf("You have %d unread emails.", int(num))
 	return num
+
+}
+
+func CheckProfile() {
+
+	url := "https://www.googleapis.com/gmail/v1/users/anik4nobody@gmail.com/profile"
+	method := "GET"
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Authorization", "Bearer ya29.A0ARrdaM_Fe29KPaKQM6cqr9f6PBzdf8pKp2RYf68BrExYgTzPNUOyAhkYCg1vqMEQ2EHKtkJ9tCUmm5qCKqwmHkpW2EYq_FDEpVaHCfe-FB7cGCoEF2oOlEnD8frVFyOfokCmmsC01lRIpgoW4yj7UpA3GO0F")
+
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(string(body))
+}
+
+func MarkAsRead() {
+	ctx := context.Background()
+	srv := gmailAPI.ConnectToService(ctx, gmail.GmailComposeScope)
+
+	msgs, err := inboxer.Query(srv, "label:UNREAD after:2022/01/01 before:2023/12/31")
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	req := &gmail.ModifyMessageRequest{
+		RemoveLabelIds: []string{"UNREAD"},
+		AddLabelIds:    []string{"TRASH"}}
+
+	// Range over the messages
+	for _, msg := range msgs {
+		msg, err := inboxer.MarkAs(srv, msg, req)
+		if err != nil {
+			fmt.Println(err)
+		}
+		body, err := inboxer.GetBody(msg, "text/plain")
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(body + "is marked as read")
+
+	}
+
+}
+
+func SendToTrash(id string) {
+
+	ctx := context.Background()
+	srv := gmailAPI.ConnectToService(ctx, gmail.GmailComposeScope)
+
+	msg, err := srv.Users.Messages.Get("me", id).Do()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 }
